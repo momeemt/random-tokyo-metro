@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/random-tokyo-metro/',
+  base: '/',
   root: '.',
   build: {
     outDir: 'dist'
