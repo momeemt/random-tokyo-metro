@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ランダム東京メトロ</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>ランダム東京メトロ</h1>
+
+      <div id="departure-section" class="departure-section">
+        <label>路線を選択</label>
+        <div id="line-buttons" class="line-buttons"></div>
+        <label id="station-label" class="station-label hidden">駅を選択</label>
+        <div id="station-buttons" class="station-buttons hidden"></div>
+        <input type="hidden" id="selected-line" />
+        <input type="hidden" id="selected-station" />
+      </div>
+
+      <div id="current-departure" class="current-departure hidden"></div>
+
+      <button id="random-button" class="random-button">
+        ゲームを開始
+      </button>
+
+      <button id="end-game-button" class="end-game-button hidden">
+        ゲーム終了
+      </button>
+
+      <div id="result-section" class="result-section">
+        <div id="line-badge" class="line-badge"></div>
+        <div id="station-name" class="station-name"></div>
+        <div id="route-display" class="route-display"></div>
+        <a id="transit-link" class="transit-link" target="_blank" rel="noopener">
+          Yahoo!乗換案内で検索
+        </a>
+      </div>
+
+      <div class="games-section">
+        <div class="games-header">
+          <h2>ゲーム履歴</h2>
+          <button id="clear-all-button" class="clear-all-button">
+            すべて削除
+          </button>
+        </div>
+        <div id="game-tabs" class="game-tabs"></div>
+        <div id="game-content" class="game-content"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
