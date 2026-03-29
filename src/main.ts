@@ -37,6 +37,22 @@ function setCurrentGameId(id: number | null): void {
   }
 }
 
+const EXCLUDED_STATIONS_KEY = 'excludedStations'
+
+function getExcludedStations(): Set<string> {
+  const data = localStorage.getItem(EXCLUDED_STATIONS_KEY)
+  if (!data) return new Set()
+  try {
+    return new Set(JSON.parse(data) as string[])
+  } catch {
+    return new Set()
+  }
+}
+
+function setExcludedStations(excluded: Set<string>): void {
+  localStorage.setItem(EXCLUDED_STATIONS_KEY, JSON.stringify([...excluded]))
+}
+
 function isGameActive(): boolean {
   return getCurrentGameId() !== null
 }
@@ -443,7 +459,14 @@ async function handleRandomClick(): Promise<void> {
     departure = getDeparture()
   }
 
-  const station = getRandomStation()
+  const excluded = getExcludedStations()
+  let station: Station
+  try {
+    station = getRandomStation(excluded)
+  } catch {
+    alert('除外駅が多すぎて選べる駅がありません。除外設定を見直してください。')
+    return
+  }
   const route = findShortestRoute(departure, station.name)
 
   await addHistory({
@@ -502,6 +525,89 @@ async function handleClearAll(): Promise<void> {
   await renderGames()
 }
 
+function renderExcludeSettings(): void {
+  const container = document.getElementById('exclude-content')!
+  const excluded = getExcludedStations()
+  const countEl = document.getElementById('exclude-count')!
+
+  countEl.textContent = excluded.size > 0 ? `(${excluded.size}駅)` : ''
+
+  let html = ''
+
+  for (const line of lines) {
+    const stationNames = getStationsByLine(line.name)
+    const excludedInLine = stationNames.filter((s) => excluded.has(s)).length
+
+    html += `
+      <div class="exclude-line">
+        <div class="exclude-line-header" data-line="${line.name}">
+          <span class="line-btn-circle" style="background-color: ${line.color}">${line.code}</span>
+          <span class="exclude-line-name">${line.name}</span>
+          ${excludedInLine > 0 ? `<span class="exclude-line-count">${excludedInLine}/${stationNames.length}</span>` : ''}
+          <button class="exclude-line-toggle" data-line="${line.name}" title="全選択/全解除">全</button>
+        </div>
+        <div class="exclude-stations hidden" data-line-stations="${line.name}">
+    `
+    for (const name of stationNames) {
+      const isExcluded = excluded.has(name)
+      html += `
+        <label class="exclude-station-label">
+          <input type="checkbox" class="exclude-checkbox" data-station="${name}" ${isExcluded ? 'checked' : ''} />
+          <span class="exclude-station-name">${name}</span>
+        </label>
+      `
+    }
+    html += '</div></div>'
+  }
+
+  container.innerHTML = html
+
+  // 路線ヘッダークリックで駅リスト開閉
+  container.querySelectorAll('.exclude-line-header').forEach((header) => {
+    header.addEventListener('click', (e) => {
+      // 「全」ボタンクリック時はスキップ
+      if ((e.target as HTMLElement).classList.contains('exclude-line-toggle')) return
+      const lineName = (header as HTMLElement).dataset.line!
+      const stationsDiv = container.querySelector(`[data-line-stations="${lineName}"]`)!
+      stationsDiv.classList.toggle('hidden')
+    })
+  })
+
+  // 「全」ボタンで路線内全選択/全解除
+  container.querySelectorAll('.exclude-line-toggle').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const lineName = (btn as HTMLElement).dataset.line!
+      const stationNames = getStationsByLine(lineName)
+      const allExcluded = stationNames.every((s) => excluded.has(s))
+      for (const name of stationNames) {
+        if (allExcluded) {
+          excluded.delete(name)
+        } else {
+          excluded.add(name)
+        }
+      }
+      setExcludedStations(excluded)
+      renderExcludeSettings()
+    })
+  })
+
+  // 個別チェックボックス
+  container.querySelectorAll('.exclude-checkbox').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      const input = cb as HTMLInputElement
+      const stationName = input.dataset.station!
+      if (input.checked) {
+        excluded.add(stationName)
+      } else {
+        excluded.delete(stationName)
+      }
+      setExcludedStations(excluded)
+      // カウント更新
+      countEl.textContent = excluded.size > 0 ? `(${excluded.size}駅)` : ''
+    })
+  })
+}
+
 async function init(): Promise<void> {
   // 路線ボタンを初期化
   populateLineButtons()
@@ -514,6 +620,15 @@ async function init(): Promise<void> {
 
   const clearAllButton = document.getElementById('clear-all-button')!
   clearAllButton.addEventListener('click', handleClearAll)
+
+  // 除外駅設定
+  const excludeToggle = document.getElementById('exclude-toggle')!
+  const excludeContent = document.getElementById('exclude-content')!
+  excludeToggle.addEventListener('click', () => {
+    excludeContent.classList.toggle('hidden')
+    excludeToggle.classList.toggle('open')
+  })
+  renderExcludeSettings()
 
   updateUI()
   await renderGames()

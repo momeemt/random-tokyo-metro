@@ -229,10 +229,18 @@ export const stations: Station[] = [
   { name: '渋谷', line: '副都心線', lineCode: 'F', lineColor: '#9C5E31' },
 ]
 
-export function getRandomStation(): Station {
-  const index = Math.floor(Math.random() * stations.length)
-  return stations[index]
+export function getRandomStation(excludedNames?: Set<string>): Station {
+  let pool = stations
+  if (excludedNames && excludedNames.size > 0) {
+    pool = stations.filter((s) => !excludedNames.has(s.name))
+  }
+  if (pool.length === 0) {
+    throw new Error('除外駅が多すぎて選べる駅がありません')
+  }
+  const index = Math.floor(Math.random() * pool.length)
+  return pool[index]
 }
+
 
 export function getStationsByLine(lineName: string): string[] {
   const seen = new Set<string>()
