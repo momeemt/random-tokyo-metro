@@ -516,6 +516,90 @@ h1 {
   background: #8f76d6;
 }
 
+/* 滞在時間表示 */
+.stay-time {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #0066cc;
+  margin-bottom: 16px;
+}
+
+/* 滞在時間設定 */
+.stay-section {
+  margin-top: 16px;
+}
+
+.stay-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: white;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: bold;
+  color: #666;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.stay-toggle:hover {
+  border-color: #999;
+  color: #333;
+}
+
+.stay-arrow {
+  margin-left: auto;
+  font-size: 0.75rem;
+  transition: transform 0.2s;
+}
+
+.stay-toggle.open .stay-arrow {
+  transform: rotate(90deg);
+}
+
+.stay-content {
+  background: white;
+  border-radius: 0 0 12px 12px;
+  padding: 16px;
+  margin-top: -2px;
+  border: 2px solid #ddd;
+  border-top: 1px solid #eee;
+}
+
+.stay-fields {
+  display: flex;
+  gap: 12px;
+}
+
+.stay-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stay-field-label {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.stay-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.stay-input:focus {
+  outline: none;
+  border-color: #0066cc;
+}
+
 /* 除外駅設定 */
 .exclude-section {
   margin-top: 16px;

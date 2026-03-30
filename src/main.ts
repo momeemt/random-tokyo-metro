@@ -63,6 +63,35 @@ function setToeiEnabled(enabled: boolean): void {
   localStorage.setItem(TOEI_ENABLED_KEY, String(enabled))
 }
 
+const STAY_TIME_KEY = 'stayTimeConfig'
+
+interface StayTimeConfig {
+  min: number
+  max: number
+  interval: number
+}
+
+function getStayTimeConfig(): StayTimeConfig {
+  const data = localStorage.getItem(STAY_TIME_KEY)
+  if (data) {
+    try {
+      return JSON.parse(data) as StayTimeConfig
+    } catch { /* fall through */ }
+  }
+  return { min: 5, max: 60, interval: 5 }
+}
+
+function setStayTimeConfig(config: StayTimeConfig): void {
+  localStorage.setItem(STAY_TIME_KEY, JSON.stringify(config))
+}
+
+function getRandomStayTime(): number {
+  const { min, max, interval } = getStayTimeConfig()
+  const steps = Math.floor((max - min) / interval) + 1
+  const step = Math.floor(Math.random() * steps)
+  return min + step * interval
+}
+
 function isGameActive(): boolean {
   return getCurrentGameId() !== null
 }
@@ -234,16 +263,18 @@ function renderRouteVisual(route: string[]): string {
   return html
 }
 
-function renderResult(station: Station, departure: string, route: string[]): void {
+function renderResult(station: Station, departure: string, route: string[], stayMinutes: number): void {
   const resultSection = document.getElementById('result-section')!
   const lineBadge = document.getElementById('line-badge')!
   const stationName = document.getElementById('station-name')!
+  const stayTimeEl = document.getElementById('stay-time')!
   const transitLink = document.getElementById('transit-link') as HTMLAnchorElement
   const routeDisplay = document.getElementById('route-display')!
 
   lineBadge.textContent = `${station.lineCode} ${station.line}`
   lineBadge.style.backgroundColor = station.lineColor
   stationName.textContent = station.name
+  stayTimeEl.textContent = `滞在時間: ${stayMinutes}分`
   transitLink.href = createTransitUrl(departure, station.name)
 
   if (route.length > 0) {
@@ -491,7 +522,8 @@ async function handleRandomClick(): Promise<void> {
     route,
   })
 
-  renderResult(station, departure, route)
+  const stayMinutes = getRandomStayTime()
+  renderResult(station, departure, route, stayMinutes)
 
   // 次回の出発駅を今回選ばれた駅に更新
   setDeparture(station.name)
@@ -621,6 +653,32 @@ function renderExcludeSettings(): void {
   })
 }
 
+function initStayTimeSettings(): void {
+  const minInput = document.getElementById('stay-min') as HTMLInputElement
+  const maxInput = document.getElementById('stay-max') as HTMLInputElement
+  const intervalInput = document.getElementById('stay-interval') as HTMLInputElement
+
+  const config = getStayTimeConfig()
+  minInput.value = String(config.min)
+  maxInput.value = String(config.max)
+  intervalInput.value = String(config.interval)
+
+  function saveConfig(): void {
+    const min = parseInt(minInput.value, 10) || 5
+    const max = parseInt(maxInput.value, 10) || 60
+    const interval = parseInt(intervalInput.value, 10) || 5
+    setStayTimeConfig({
+      min: Math.max(1, min),
+      max: Math.max(min, max),
+      interval: Math.max(1, interval),
+    })
+  }
+
+  minInput.addEventListener('change', saveConfig)
+  maxInput.addEventListener('change', saveConfig)
+  intervalInput.addEventListener('change', saveConfig)
+}
+
 async function init(): Promise<void> {
   // 都営トグル初期化
   const toeiToggle = document.getElementById('toei-toggle') as HTMLInputElement
@@ -642,6 +700,15 @@ async function init(): Promise<void> {
 
   const clearAllButton = document.getElementById('clear-all-button')!
   clearAllButton.addEventListener('click', handleClearAll)
+
+  // 滞在時間設定
+  const stayToggle = document.getElementById('stay-toggle')!
+  const stayContent = document.getElementById('stay-content')!
+  stayToggle.addEventListener('click', () => {
+    stayContent.classList.toggle('hidden')
+    stayToggle.classList.toggle('open')
+  })
+  initStayTimeSettings()
 
   // 除外駅設定
   const excludeToggle = document.getElementById('exclude-toggle')!
