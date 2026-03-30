@@ -4,6 +4,7 @@ import {
   addHistory,
   getAllGames,
   getHistoryByGame,
+  updateHistory,
   updateGameName,
   deleteGame,
   clearAllData,
@@ -334,7 +335,10 @@ async function renderGames(): Promise<void> {
     })
   })
 
-  // 編集・削除のイベントリスナー
+  // 再計算・編集・削除のイベントリスナー
+  document.querySelectorAll('.game-recalc').forEach((btn) => {
+    btn.addEventListener('click', handleRecalcRoutes)
+  })
   document.querySelectorAll('.game-name-edit').forEach((btn) => {
     btn.addEventListener('click', handleEditGameName)
   })
@@ -450,6 +454,7 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
       <div class="game-header">
         <div class="game-name" data-game-id="${game.id}">${escapeHtml(game.name)}</div>
         <div class="game-actions">
+          <button class="game-recalc" data-game-id="${game.id}" title="経路を再計算">🔄</button>
           <button class="game-name-edit" data-game-id="${game.id}" title="名前を変更">✏️</button>
           <button class="game-delete" data-game-id="${game.id}" title="削除">🗑️</button>
         </div>
@@ -487,6 +492,28 @@ async function handleDeleteGame(e: Event): Promise<void> {
 
   await deleteGame(gameId)
   await renderGames()
+}
+
+async function handleRecalcRoutes(e: Event): Promise<void> {
+  const btn = e.currentTarget as HTMLButtonElement
+  const gameId = parseInt(btn.dataset.gameId!, 10)
+  const toei = isToeiEnabled()
+
+  const history = await getHistoryByGame(gameId)
+  let updated = 0
+  for (const record of history) {
+    const newRoute = findShortestRoute(record.fromStation, record.toStation, toei)
+    if (JSON.stringify(newRoute) !== JSON.stringify(record.route)) {
+      record.route = newRoute
+      await updateHistory(record)
+      updated++
+    }
+  }
+
+  if (updated > 0) {
+    await renderGames()
+  }
+  alert(`${history.length}件中${updated}件の経路を再計算しました。`)
 }
 
 async function handleRandomClick(): Promise<void> {

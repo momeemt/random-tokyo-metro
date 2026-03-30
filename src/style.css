@@ -413,6 +413,7 @@ h1 {
   gap: 8px;
 }
 
+.game-recalc,
 .game-name-edit,
 .game-delete {
   background: none;
@@ -424,6 +425,7 @@ h1 {
   transition: opacity 0.2s;
 }
 
+.game-recalc:hover,
 .game-name-edit:hover,
 .game-delete:hover {
   opacity: 1;

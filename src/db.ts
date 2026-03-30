@@ -165,6 +165,17 @@ export async function addHistory(record: Omit<HistoryRecord, 'id'>): Promise<num
   })
 }
 
+export async function updateHistory(record: HistoryRecord): Promise<void> {
+  const database = await openDB()
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([HISTORY_STORE], 'readwrite')
+    const store = transaction.objectStore(HISTORY_STORE)
+    const request = store.put(record)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
 export async function getHistoryByGame(gameId: number): Promise<HistoryRecord[]> {
   const database = await openDB()
   return new Promise((resolve, reject) => {
