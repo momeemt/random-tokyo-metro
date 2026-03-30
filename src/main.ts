@@ -649,6 +649,27 @@ function renderExcludeSettings(): void {
       setExcludedStations(excluded)
       // カウント更新
       countEl.textContent = excluded.size > 0 ? `(${excluded.size}駅)` : ''
+      // 路線ごとのカウント更新
+      const activeLines = getActiveLines(isToeiEnabled())
+      for (const line of activeLines) {
+        const names = getStationsByLine(line.name)
+        const cnt = names.filter((s) => excluded.has(s)).length
+        const countSpan = container.querySelector(`.exclude-line-header[data-line="${line.name}"] .exclude-line-count`) as HTMLElement | null
+        if (countSpan) {
+          if (cnt > 0) {
+            countSpan.textContent = `${cnt}/${names.length}`
+          } else {
+            countSpan.remove()
+          }
+        } else if (cnt > 0) {
+          const header = container.querySelector(`.exclude-line-header[data-line="${line.name}"]`)!
+          const toggleBtn = header.querySelector('.exclude-line-toggle')!
+          const span = document.createElement('span')
+          span.className = 'exclude-line-count'
+          span.textContent = `${cnt}/${names.length}`
+          header.insertBefore(span, toggleBtn)
+        }
+      }
     })
   })
 }
