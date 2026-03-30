@@ -556,6 +556,11 @@ h1 {
   transition: transform 0.2s;
 }
 
+.stay-toggle.open {
+  border-radius: 12px 12px 0 0;
+  border-bottom-color: #eee;
+}
+
 .stay-toggle.open .stay-arrow {
   transform: rotate(90deg);
 }
@@ -564,9 +569,8 @@ h1 {
   background: white;
   border-radius: 0 0 12px 12px;
   padding: 16px;
-  margin-top: -2px;
   border: 2px solid #ddd;
-  border-top: 1px solid #eee;
+  border-top: none;
 }
 
 .stay-fields {
@@ -638,6 +642,11 @@ h1 {
   transition: transform 0.2s;
 }
 
+.exclude-toggle.open {
+  border-radius: 12px 12px 0 0;
+  border-bottom-color: #eee;
+}
+
 .exclude-toggle.open .exclude-arrow {
   transform: rotate(90deg);
 }
@@ -646,9 +655,8 @@ h1 {
   background: white;
   border-radius: 0 0 12px 12px;
   padding: 12px;
-  margin-top: -2px;
   border: 2px solid #ddd;
-  border-top: 1px solid #eee;
+  border-top: none;
   max-height: 400px;
   overflow-y: auto;
 }
