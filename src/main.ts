@@ -471,6 +471,7 @@ async function handleRandomClick(): Promise<void> {
   }
 
   const excluded = getExcludedStations()
+  excluded.add(departure)
   let station: Station
   try {
     station = getRandomStation(excluded, isToeiEnabled())
