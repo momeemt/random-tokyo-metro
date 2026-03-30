@@ -518,7 +518,7 @@ async function handleRandomClick(): Promise<void> {
     alert('除外駅が多すぎて選べる駅がありません。除外設定を見直してください。')
     return
   }
-  const route = findShortestRoute(departure, station.name)
+  const route = findShortestRoute(departure, station.name, isToeiEnabled())
 
   const stayMinutes = getRandomStayTime()
 

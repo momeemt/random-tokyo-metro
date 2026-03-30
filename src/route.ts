@@ -107,14 +107,28 @@ const transfers: string[][] = [
   ['小川町', '淡路町', '新御茶ノ水'], // S, M, C（徒歩乗り換え）
 ]
 
+const TOEI_LINE_CODES = new Set(['A', 'I', 'S', 'E_radial', 'E_loop'])
+
 // コスト設定（分単位）
 const TRAVEL_TIME_PER_STATION = 2  // 駅間の所要時間
 const TRANSFER_PENALTY = 5          // 乗り換えペナルティ
 
+// 使用する路線を取得
+function getActiveLines(includeToei: boolean): Record<string, string[]> {
+  if (includeToei) return lines
+  const result: Record<string, string[]> = {}
+  for (const [code, stations] of Object.entries(lines)) {
+    if (!TOEI_LINE_CODES.has(code)) {
+      result[code] = stations
+    }
+  }
+  return result
+}
+
 // 駅がどの路線に属しているかを取得
-function getLinesForStation(station: string): string[] {
+function getLinesForStation(station: string, activeLines: Record<string, string[]>): string[] {
   const result: string[] = []
-  for (const [lineCode, stations] of Object.entries(lines)) {
+  for (const [lineCode, stations] of Object.entries(activeLines)) {
     if (stations.includes(station)) {
       result.push(lineCode)
     }
@@ -123,19 +137,25 @@ function getLinesForStation(station: string): string[] {
 }
 
 // 乗り換え可能な駅のグループを取得
-function getTransferGroup(station: string): string[] {
+function getTransferGroup(station: string, activeLines: Record<string, string[]>): string[] {
   for (const group of transfers) {
     if (group.includes(station)) {
-      return group
+      // グループ内で使用中の路線に属する駅のみ返す
+      return group.filter((s) => {
+        for (const stations of Object.values(activeLines)) {
+          if (stations.includes(s)) return true
+        }
+        return false
+      })
     }
   }
   return [station]
 }
 
 // 全駅のセットを取得
-function getAllStations(): Set<string> {
+function getAllStationsSet(activeLines: Record<string, string[]>): Set<string> {
   const stations = new Set<string>()
-  for (const stationList of Object.values(lines)) {
+  for (const stationList of Object.values(activeLines)) {
     for (const station of stationList) {
       stations.add(station)
     }
@@ -143,12 +163,13 @@ function getAllStations(): Set<string> {
   return stations
 }
 
-const allStations = getAllStations()
-
 // ダイクストラ法で乗り換えペナルティを考慮した最短経路を探索
 // 状態: (駅名, 現在の路線) のペア
-export function findShortestRoute(from: string, to: string): string[] {
+export function findShortestRoute(from: string, to: string, includeToei?: boolean): string[] {
   if (from === to) return [from]
+
+  const active = getActiveLines(includeToei ?? false)
+  const allStations = getAllStationsSet(active)
 
   if (!allStations.has(from) || !allStations.has(to)) {
     return []
@@ -187,11 +208,11 @@ export function findShortestRoute(from: string, to: string): string[] {
     visited.set(stateKey, current.cost)
 
     // 現在の駅で利用可能な路線
-    const availableLines = getLinesForStation(current.station)
+    const availableLines = getLinesForStation(current.station, active)
 
     // 各路線について、隣接駅への移動を検討
     for (const lineCode of availableLines) {
-      const stationsOnLine = lines[lineCode]
+      const stationsOnLine = active[lineCode]
       const currentIndex = stationsOnLine.indexOf(current.station)
 
       if (currentIndex === -1) continue
@@ -225,7 +246,7 @@ export function findShortestRoute(from: string, to: string): string[] {
     }
 
     // 乗り換え可能駅への移動（赤坂見附⇔永田町、日比谷⇔有楽町など）
-    const transferGroup = getTransferGroup(current.station)
+    const transferGroup = getTransferGroup(current.station, active)
     for (const transferStation of transferGroup) {
       if (transferStation !== current.station) {
         // 別の駅への乗り換え（徒歩連絡）
