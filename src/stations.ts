@@ -11,7 +11,7 @@ export interface Line {
   color: string
 }
 
-export const lines: Line[] = [
+export const metroLines: Line[] = [
   { name: '銀座線', code: 'G', color: '#FF9500' },
   { name: '丸ノ内線', code: 'M', color: '#F62E36' },
   { name: '日比谷線', code: 'H', color: '#B5B5AC' },
@@ -22,6 +22,19 @@ export const lines: Line[] = [
   { name: '南北線', code: 'N', color: '#00AC9B' },
   { name: '副都心線', code: 'F', color: '#9C5E31' },
 ]
+
+export const toeiLines: Line[] = [
+  { name: '都営浅草線', code: 'A', color: '#E85298' },
+  { name: '都営三田線', code: 'I', color: '#0079C2' },
+  { name: '都営新宿線', code: 'S', color: '#6CBB5A' },
+  { name: '都営大江戸線', code: 'E', color: '#B6007A' },
+]
+
+export const lines = metroLines
+
+export function getActiveLines(includeToei: boolean): Line[] {
+  return includeToei ? [...metroLines, ...toeiLines] : metroLines
+}
 
 export const stations: Station[] = [
   // 銀座線 (G) - オレンジ
@@ -229,10 +242,130 @@ export const stations: Station[] = [
   { name: '渋谷', line: '副都心線', lineCode: 'F', lineColor: '#9C5E31' },
 ]
 
-export function getRandomStation(excludedNames?: Set<string>): Station {
-  let pool = stations
+export const toeiStations: Station[] = [
+  // 都営浅草線 (A) - ローズ
+  { name: '西馬込', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '馬込', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '中延', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '戸越', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '五反田', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '高輪台', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '泉岳寺', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '三田', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '大門', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '新橋', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '東銀座', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '宝町', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '日本橋', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '人形町', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '東日本橋', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '浅草橋', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '蔵前', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '浅草', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '本所吾妻橋', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+  { name: '押上', line: '都営浅草線', lineCode: 'A', lineColor: '#E85298' },
+
+  // 都営三田線 (I) - ブルー
+  { name: '目黒', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '白金台', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '白金高輪', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '三田', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '芝公園', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '御成門', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '内幸町', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '日比谷', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '大手町', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '神保町', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '水道橋', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '春日', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '白山', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '千石', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '巣鴨', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '西巣鴨', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '新板橋', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '板橋区役所前', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '板橋本町', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '本蓮沼', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '志村坂上', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '志村三丁目', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '蓮根', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '西台', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '高島平', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '新高島平', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+  { name: '西高島平', line: '都営三田線', lineCode: 'I', lineColor: '#0079C2' },
+
+  // 都営新宿線 (S) - リーフグリーン
+  { name: '新宿', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '新宿三丁目', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '曙橋', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '市ケ谷', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '九段下', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '神保町', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '小川町', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '岩本町', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '馬喰横山', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '浜町', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '森下', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '菊川', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '住吉', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '西大島', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '大島', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '東大島', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '船堀', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '一之江', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '瑞江', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '篠崎', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+  { name: '本八幡', line: '都営新宿線', lineCode: 'S', lineColor: '#6CBB5A' },
+
+  // 都営大江戸線 (E) - ルビー
+  { name: '光が丘', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '練馬春日町', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '豊島園', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '練馬', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '新江古田', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '落合南長崎', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '中井', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '東中野', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '中野坂上', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '西新宿五丁目', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '都庁前', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '新宿西口', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '東新宿', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '若松河田', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '牛込柳町', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '牛込神楽坂', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '飯田橋', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '春日', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '本郷三丁目', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '上野御徒町', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '新御徒町', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '蔵前', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '両国', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '森下', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '清澄白河', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '門前仲町', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '月島', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '勝どき', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '築地市場', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '汐留', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '大門', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '赤羽橋', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '麻布十番', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '六本木', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '青山一丁目', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '国立競技場', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '代々木', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+  { name: '新宿', line: '都営大江戸線', lineCode: 'E', lineColor: '#B6007A' },
+]
+
+export function getAllStations(includeToei: boolean): Station[] {
+  return includeToei ? [...stations, ...toeiStations] : stations
+}
+
+export function getRandomStation(excludedNames?: Set<string>, includeToei?: boolean): Station {
+  let pool = getAllStations(includeToei ?? false)
   if (excludedNames && excludedNames.size > 0) {
-    pool = stations.filter((s) => !excludedNames.has(s.name))
+    pool = pool.filter((s) => !excludedNames.has(s.name))
   }
   if (pool.length === 0) {
     throw new Error('除外駅が多すぎて選べる駅がありません')
@@ -241,11 +374,11 @@ export function getRandomStation(excludedNames?: Set<string>): Station {
   return pool[index]
 }
 
-
 export function getStationsByLine(lineName: string): string[] {
+  const all = [...stations, ...toeiStations]
   const seen = new Set<string>()
   const result: string[] = []
-  for (const station of stations) {
+  for (const station of all) {
     if (station.line === lineName && !seen.has(station.name)) {
       seen.add(station.name)
       result.push(station.name)
