@@ -554,6 +554,7 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
   routeHtml += '</div>'
 
   const totalFare = calculateGameFare(history)
+  const totalStations = history.reduce((sum, r) => sum + Math.max(0, r.route.length - 1), 0)
   const passPrice = getPassPrice()
   const savings = totalFare - passPrice
   const passLabel = isToeiEnabled() ? 'メトロ・都営共通一日券' : 'メトロ24時間券'
@@ -564,7 +565,7 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
   } else if (savings > 0) {
     fareHtml = `
       <div class="game-fare game-fare-profit">
-        <span class="fare-total">運賃合計 ¥${totalFare}</span>
+        <span class="fare-total">合計${totalStations}駅 / 運賃 ¥${totalFare}</span>
         <span class="fare-pass">${passLabel} ¥${passPrice}</span>
         <span class="fare-savings">¥${savings} お得!</span>
       </div>
@@ -572,7 +573,7 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
   } else {
     fareHtml = `
       <div class="game-fare game-fare-loss">
-        <span class="fare-total">運賃合計 ¥${totalFare}</span>
+        <span class="fare-total">合計${totalStations}駅 / 運賃 ¥${totalFare}</span>
         <span class="fare-pass">${passLabel} ¥${passPrice}</span>
         <span class="fare-savings">あと ¥${-savings} で元が取れる</span>
       </div>
