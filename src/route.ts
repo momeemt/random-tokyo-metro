@@ -266,6 +266,12 @@ const lineColors: Record<string, { name: string; color: string }> = {
   E_loop: { name: '都営大江戸線', color: '#B6007A' },
 }
 
+// 内部路線コードを表示用コードに変換
+function toDisplayCode(lineCode: string): string {
+  if (lineCode === 'E_radial' || lineCode === 'E_loop') return 'E'
+  return lineCode
+}
+
 // 2駅間でどの路線を使っているかを判定
 function getLineBetween(from: string, to: string): string | null {
   for (const [lineCode, stations] of Object.entries(lines)) {
@@ -333,11 +339,13 @@ export function getRouteWithLines(route: string[]): RouteNode[] {
       }
     }
 
-    const isTransfer = prevLineCode !== null && lineCode !== null && prevLineCode !== lineCode
+    const displayCode = lineCode ? toDisplayCode(lineCode) : null
+    const prevDisplayCode = prevLineCode ? toDisplayCode(prevLineCode) : null
+    const isTransfer = prevDisplayCode !== null && displayCode !== null && prevDisplayCode !== displayCode
 
     result.push({
       station,
-      lineCode,
+      lineCode: displayCode,
       lineName,
       lineColor,
       isTransfer,
