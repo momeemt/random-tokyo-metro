@@ -97,6 +97,74 @@ function isGameActive(): boolean {
   return getCurrentGameId() !== null
 }
 
+// 運賃計算
+const METRO_PASS_PRICE = 700
+const COMMON_PASS_PRICE = 1200
+const TOEI_CODES = new Set(['A', 'I', 'S', 'E'])
+
+// メトロ運賃（駅数で近似、1駅≈1.2km）
+function getMetroFare(hops: number): number {
+  if (hops <= 0) return 0
+  if (hops <= 5) return 180   // 1-6km
+  if (hops <= 9) return 210   // 7-11km
+  if (hops <= 15) return 260  // 12-19km
+  if (hops <= 22) return 300  // 20-27km
+  return 340                   // 28km+
+}
+
+// 都営運賃（駅数で近似、1駅≈1.2km）
+function getToeiFare(hops: number): number {
+  if (hops <= 0) return 0
+  if (hops <= 3) return 180   // 1-4km
+  if (hops <= 7) return 220   // 5-9km
+  if (hops <= 12) return 280  // 10-15km
+  if (hops <= 17) return 330  // 16-21km
+  if (hops <= 22) return 380  // 22-27km
+  return 430                   // 28km+
+}
+
+function calculateTripFare(route: string[]): number {
+  const nodes = getRouteWithLines(route)
+  if (nodes.length < 2) return 0
+
+  let totalFare = 0
+  let currentOperator: 'metro' | 'toei' | null = null
+  let hops = 0
+
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const lineCode = nodes[i].lineCode
+    if (lineCode === null) continue
+
+    const operator: 'metro' | 'toei' = TOEI_CODES.has(lineCode) ? 'toei' : 'metro'
+
+    if (operator !== currentOperator && currentOperator !== null && hops > 0) {
+      totalFare += currentOperator === 'metro' ? getMetroFare(hops) : getToeiFare(hops)
+      hops = 0
+    }
+
+    currentOperator = operator
+    hops++
+  }
+
+  if (hops > 0 && currentOperator !== null) {
+    totalFare += currentOperator === 'metro' ? getMetroFare(hops) : getToeiFare(hops)
+  }
+
+  return totalFare
+}
+
+function calculateGameFare(history: HistoryRecord[]): number {
+  let total = 0
+  for (const record of history) {
+    total += calculateTripFare(record.route)
+  }
+  return total
+}
+
+function getPassPrice(): number {
+  return isToeiEnabled() ? COMMON_PASS_PRICE : METRO_PASS_PRICE
+}
+
 function createTransitUrl(from: string, to: string): string {
   const params = new URLSearchParams()
   if (from) params.set('from', from)
@@ -272,10 +340,16 @@ function renderResult(station: Station, departure: string, route: string[], stay
   const transitLink = document.getElementById('transit-link') as HTMLAnchorElement
   const routeDisplay = document.getElementById('route-display')!
 
+  const tripFareEl = document.getElementById('trip-fare')!
+
   lineBadge.textContent = `${station.lineCode} ${station.line}`
   lineBadge.style.backgroundColor = station.lineColor
   stationName.textContent = station.name
   stayTimeEl.textContent = `滞在時間: ${stayMinutes}分`
+
+  const tripFare = calculateTripFare(route)
+  tripFareEl.textContent = `この区間の運賃: ¥${tripFare}`
+
   transitLink.href = createTransitUrl(departure, station.name)
 
   if (route.length > 0) {
@@ -449,6 +523,32 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
 
   routeHtml += '</div>'
 
+  const totalFare = calculateGameFare(history)
+  const passPrice = getPassPrice()
+  const savings = totalFare - passPrice
+  const passLabel = isToeiEnabled() ? 'メトロ・都営共通一日券' : 'メトロ24時間券'
+
+  let fareHtml: string
+  if (history.length === 0) {
+    fareHtml = ''
+  } else if (savings > 0) {
+    fareHtml = `
+      <div class="game-fare game-fare-profit">
+        <span class="fare-total">運賃合計 ¥${totalFare}</span>
+        <span class="fare-pass">${passLabel} ¥${passPrice}</span>
+        <span class="fare-savings">¥${savings} お得!</span>
+      </div>
+    `
+  } else {
+    fareHtml = `
+      <div class="game-fare game-fare-loss">
+        <span class="fare-total">運賃合計 ¥${totalFare}</span>
+        <span class="fare-pass">${passLabel} ¥${passPrice}</span>
+        <span class="fare-savings">あと ¥${-savings} で元が取れる</span>
+      </div>
+    `
+  }
+
   return `
     <div class="game-card" data-game-id="${game.id}">
       <div class="game-header">
@@ -459,6 +559,7 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
           <button class="game-delete" data-game-id="${game.id}" title="削除">🗑️</button>
         </div>
       </div>
+      ${fareHtml}
       ${routeHtml}
     </div>
   `

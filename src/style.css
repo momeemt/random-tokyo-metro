@@ -527,7 +527,56 @@ h1 {
   font-size: 1.25rem;
   font-weight: bold;
   color: #0066cc;
+  margin-bottom: 8px;
+}
+
+/* 区間運賃表示 */
+.trip-fare {
+  font-size: 0.875rem;
+  color: #666;
   margin-bottom: 16px;
+}
+
+/* ゲーム運賃サマリー */
+.game-fare {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 0.8125rem;
+}
+
+.game-fare-profit {
+  background: #e8f5e9;
+}
+
+.game-fare-loss {
+  background: #fff8e1;
+}
+
+.fare-total {
+  color: #333;
+  font-weight: 500;
+}
+
+.fare-pass {
+  color: #666;
+}
+
+.fare-savings {
+  font-weight: bold;
+  margin-left: auto;
+}
+
+.game-fare-profit .fare-savings {
+  color: #2e7d32;
+}
+
+.game-fare-loss .fare-savings {
+  color: #f57f17;
 }
 
 /* 滞在時間設定 */
