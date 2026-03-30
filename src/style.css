@@ -516,6 +516,10 @@ h1 {
   background: #8f76d6;
 }
 
+.route-badge-stay {
+  background: #0066cc;
+}
+
 /* 滞在時間表示 */
 .stay-time {
   font-size: 1.25rem;
