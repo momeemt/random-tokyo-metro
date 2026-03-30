@@ -86,11 +86,38 @@ function setStayTimeConfig(config: StayTimeConfig): void {
   localStorage.setItem(STAY_TIME_KEY, JSON.stringify(config))
 }
 
-function getRandomStayTime(): number {
+function getRandomStayDisplay(): string {
   const { min, max, interval } = getStayTimeConfig()
   const steps = Math.floor((max - min) / interval) + 1
-  const step = Math.floor(Math.random() * steps)
-  return min + step * interval
+
+  // ランダムに2つの値を選んでソート
+  const a = Math.floor(Math.random() * steps)
+  const b = Math.floor(Math.random() * steps)
+  const lo = min + Math.min(a, b) * interval
+  const hi = min + Math.max(a, b) * interval
+
+  // 3パターンからランダムに選択
+  const patterns: (() => string)[] = []
+
+  // 「○分以下」: hi が max 未満の場合のみ意味がある
+  if (hi < max) {
+    patterns.push(() => `${hi}分以下`)
+  }
+  // 「○分以上」: lo が min より大きい場合のみ意味がある
+  if (lo > min) {
+    patterns.push(() => `${lo}分以上`)
+  }
+  // 「○分〜××分」: lo と hi が異なる場合
+  if (lo !== hi) {
+    patterns.push(() => `${lo}分〜${hi}分`)
+  }
+
+  // パターンがなければ（lo === hi かつ端の値）ちょうどの値を返す
+  if (patterns.length === 0) {
+    return `${lo}分`
+  }
+
+  return patterns[Math.floor(Math.random() * patterns.length)]()
 }
 
 function isGameActive(): boolean {
@@ -332,7 +359,7 @@ function renderRouteVisual(route: string[]): string {
   return html
 }
 
-function renderResult(station: Station, departure: string, route: string[], stayMinutes: number): void {
+function renderResult(station: Station, departure: string, route: string[], stayDisplay: string): void {
   const resultSection = document.getElementById('result-section')!
   const lineBadge = document.getElementById('line-badge')!
   const stationName = document.getElementById('station-name')!
@@ -345,7 +372,7 @@ function renderResult(station: Station, departure: string, route: string[], stay
   lineBadge.textContent = `${station.lineCode} ${station.line}`
   lineBadge.style.backgroundColor = station.lineColor
   stationName.textContent = station.name
-  stayTimeEl.textContent = `滞在時間: ${stayMinutes}分`
+  stayTimeEl.textContent = `滞在時間: ${stayDisplay}`
 
   const tripFare = calculateTripFare(route)
   tripFareEl.textContent = `この区間の運賃: ¥${tripFare}`
@@ -423,7 +450,7 @@ async function renderGames(): Promise<void> {
 
 interface ExtendedRouteNode extends RouteNode {
   destinationNumber: number | null  // null=通過駅、0=開始駅、1=1回目の目的地...
-  stayMinutes: number | null        // 目的地の滞在時間
+  stayLabel: string | null          // 目的地の滞在時間表示
 }
 
 function buildFullRoute(game: GameRecord, history: HistoryRecord[]): ExtendedRouteNode[] {
@@ -435,15 +462,15 @@ function buildFullRoute(game: GameRecord, history: HistoryRecord[]): ExtendedRou
       lineColor: null,
       isTransfer: false,
       destinationNumber: 0,  // 開始駅
-      stayMinutes: null,
+      stayLabel: null,
     }]
   }
 
   // 全てのrouteを統合し、目的地のインデックスを追跡
   const allStations: string[] = []
   // 目的地のインデックス（結合後の配列でのインデックス）→ { 番号, 滞在時間 }
-  const destinationInfo = new Map<number, { number: number; stayMinutes: number | null }>()
-  destinationInfo.set(0, { number: 0, stayMinutes: null })  // 開始駅
+  const destinationInfo = new Map<number, { number: number; stayLabel: string | null }>()
+  destinationInfo.set(0, { number: 0, stayLabel: null })  // 開始駅
 
   for (let i = 0; i < history.length; i++) {
     const record = history[i]
@@ -456,9 +483,12 @@ function buildFullRoute(game: GameRecord, history: HistoryRecord[]): ExtendedRou
 
     // このレコードの目的地は、現在のallStationsの最後のインデックス
     const destinationIndex = allStations.length - 1
+    // stayDisplay優先、なければ旧形式のstayMinutesから生成
+    const stayLabel = record.stayDisplay
+      ?? (record.stayMinutes != null ? `${record.stayMinutes}分` : null)
     destinationInfo.set(destinationIndex, {
       number: i + 1,
-      stayMinutes: record.stayMinutes ?? null,
+      stayLabel,
     })
   }
 
@@ -468,7 +498,7 @@ function buildFullRoute(game: GameRecord, history: HistoryRecord[]): ExtendedRou
   return baseNodes.map((node, index) => ({
     ...node,
     destinationNumber: destinationInfo.get(index)?.number ?? null,
-    stayMinutes: destinationInfo.get(index)?.stayMinutes ?? null,
+    stayLabel: destinationInfo.get(index)?.stayLabel ?? null,
   }))
 }
 
@@ -499,7 +529,7 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
     const destinationLabel = getDestinationLabel(node.destinationNumber)
     const transferLabel = node.isTransfer ? '<span class="route-badge route-badge-transfer">乗換</span>' : ''
     const currentLabel = isFirst && node.destinationNumber !== null ? '<span class="route-badge route-badge-current">現在地</span>' : ''
-    const stayLabel = node.stayMinutes != null ? `<span class="route-badge route-badge-stay">${node.stayMinutes}分</span>` : ''
+    const stayBadge = node.stayLabel != null ? `<span class="route-badge route-badge-stay">${node.stayLabel}</span>` : ''
 
     routeHtml += `
       <div class="route-node">
@@ -513,7 +543,7 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
         <div class="route-info">
           <span class="route-station">${node.station}</span>
           ${destinationLabel}
-          ${stayLabel}
+          ${stayBadge}
           ${transferLabel}
           ${currentLabel}
         </div>
@@ -648,7 +678,7 @@ async function handleRandomClick(): Promise<void> {
   }
   const route = findShortestRoute(departure, station.name, isToeiEnabled())
 
-  const stayMinutes = getRandomStayTime()
+  const stayDisplay = getRandomStayDisplay()
 
   await addHistory({
     gameId: gameId!,
@@ -658,9 +688,9 @@ async function handleRandomClick(): Promise<void> {
     lineName: station.line,
     lineCode: station.lineCode,
     route,
-    stayMinutes,
+    stayDisplay,
   })
-  renderResult(station, departure, route, stayMinutes)
+  renderResult(station, departure, route, stayDisplay)
 
   // 次回の出発駅を今回選ばれた駅に更新
   setDeparture(station.name)
