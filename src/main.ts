@@ -1,4 +1,4 @@
-import { getRandomStation, Station, lines, getStationsByLine } from './stations'
+import { getRandomStation, Station, getStationsByLine, getActiveLines } from './stations'
 import {
   createGame,
   addHistory,
@@ -53,6 +53,16 @@ function setExcludedStations(excluded: Set<string>): void {
   localStorage.setItem(EXCLUDED_STATIONS_KEY, JSON.stringify([...excluded]))
 }
 
+const TOEI_ENABLED_KEY = 'toeiEnabled'
+
+function isToeiEnabled(): boolean {
+  return localStorage.getItem(TOEI_ENABLED_KEY) === 'true'
+}
+
+function setToeiEnabled(enabled: boolean): void {
+  localStorage.setItem(TOEI_ENABLED_KEY, String(enabled))
+}
+
 function isGameActive(): boolean {
   return getCurrentGameId() !== null
 }
@@ -68,7 +78,8 @@ function populateLineButtons(): void {
   const lineButtons = document.getElementById('line-buttons')!
   lineButtons.innerHTML = ''
 
-  for (const line of lines) {
+  const activeLines = getActiveLines(isToeiEnabled())
+  for (const line of activeLines) {
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.className = 'line-btn'
@@ -462,7 +473,7 @@ async function handleRandomClick(): Promise<void> {
   const excluded = getExcludedStations()
   let station: Station
   try {
-    station = getRandomStation(excluded)
+    station = getRandomStation(excluded, isToeiEnabled())
   } catch {
     alert('除外駅が多すぎて選べる駅がありません。除外設定を見直してください。')
     return
@@ -534,7 +545,8 @@ function renderExcludeSettings(): void {
 
   let html = ''
 
-  for (const line of lines) {
+  const activeLines = getActiveLines(isToeiEnabled())
+  for (const line of activeLines) {
     const stationNames = getStationsByLine(line.name)
     const excludedInLine = stationNames.filter((s) => excluded.has(s)).length
 
@@ -609,6 +621,15 @@ function renderExcludeSettings(): void {
 }
 
 async function init(): Promise<void> {
+  // 都営トグル初期化
+  const toeiToggle = document.getElementById('toei-toggle') as HTMLInputElement
+  toeiToggle.checked = isToeiEnabled()
+  toeiToggle.addEventListener('change', () => {
+    setToeiEnabled(toeiToggle.checked)
+    populateLineButtons()
+    renderExcludeSettings()
+  })
+
   // 路線ボタンを初期化
   populateLineButtons()
 
