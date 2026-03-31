@@ -413,6 +413,12 @@ h1 {
   gap: 8px;
 }
 
+/* シェア表示 */
+.shared-section {
+  margin-bottom: 16px;
+}
+
+.game-share,
 .game-recalc,
 .game-name-edit,
 .game-delete {
@@ -425,6 +431,7 @@ h1 {
   transition: opacity 0.2s;
 }
 
+.game-share:hover,
 .game-recalc:hover,
 .game-name-edit:hover,
 .game-delete:hover {

@@ -436,7 +436,10 @@ async function renderGames(): Promise<void> {
     })
   })
 
-  // 再計算・編集・削除のイベントリスナー
+  // シェア・再計算・編集・削除のイベントリスナー
+  document.querySelectorAll('.game-share').forEach((btn) => {
+    btn.addEventListener('click', handleShareGame)
+  })
   document.querySelectorAll('.game-recalc').forEach((btn) => {
     btn.addEventListener('click', handleRecalcRoutes)
   })
@@ -585,6 +588,7 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
       <div class="game-header">
         <div class="game-name" data-game-id="${game.id}">${escapeHtml(game.name)}</div>
         <div class="game-actions">
+          <button class="game-share" data-game-id="${game.id}" title="シェア">📤</button>
           <button class="game-recalc" data-game-id="${game.id}" title="経路を再計算">🔄</button>
           <button class="game-name-edit" data-game-id="${game.id}" title="名前を変更">✏️</button>
           <button class="game-delete" data-game-id="${game.id}" title="削除">🗑️</button>
@@ -600,6 +604,195 @@ function escapeHtml(text: string): string {
   const div = document.createElement('div')
   div.textContent = text
   return div.innerHTML
+}
+
+// シェア機能
+interface ShareData {
+  s: string  // start station
+  t: boolean // toei enabled
+  d: { n: string; st?: string }[] // destinations
+}
+
+function encodeShareData(data: ShareData): string {
+  const json = JSON.stringify(data)
+  const bytes = new TextEncoder().encode(json)
+  let binary = ''
+  for (const b of bytes) binary += String.fromCharCode(b)
+  return btoa(binary)
+}
+
+function decodeShareData(encoded: string): ShareData | null {
+  try {
+    const binary = atob(encoded)
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0))
+    const json = new TextDecoder().decode(bytes)
+    return JSON.parse(json) as ShareData
+  } catch {
+    return null
+  }
+}
+
+async function handleShareGame(e: Event): Promise<void> {
+  const btn = e.currentTarget as HTMLButtonElement
+  const gameId = parseInt(btn.dataset.gameId!, 10)
+
+  const games = await getAllGames()
+  const game = games.find((g) => g.id === gameId)
+  if (!game) return
+
+  const history = await getHistoryByGame(gameId)
+
+  const data: ShareData = {
+    s: game.startStation,
+    t: isToeiEnabled(),
+    d: history.map((r) => {
+      const entry: { n: string; st?: string } = { n: r.toStation }
+      if (r.stayDisplay) entry.st = r.stayDisplay
+      else if (r.stayMinutes != null) entry.st = `${r.stayMinutes}分`
+      return entry
+    }),
+  }
+
+  const encoded = encodeShareData(data)
+  const url = `${location.origin}${location.pathname}?share=${encoded}`
+
+  try {
+    await navigator.clipboard.writeText(url)
+    alert('シェア用URLをコピーしました')
+  } catch {
+    prompt('シェア用URL:', url)
+  }
+}
+
+function renderSharedGame(data: ShareData): string {
+  // 経路を再計算してゲームカード風に表示
+  const stations: string[] = [data.s]
+  for (const d of data.d) stations.push(d.n)
+
+  // buildFullRoute相当の処理
+  const allStations: string[] = []
+  const destinationInfo = new Map<number, { number: number; stayLabel: string | null }>()
+  destinationInfo.set(0, { number: 0, stayLabel: null })
+
+  for (let i = 0; i < data.d.length; i++) {
+    const from = i === 0 ? data.s : data.d[i - 1].n
+    const to = data.d[i].n
+    const route = findShortestRoute(from, to, data.t)
+
+    for (let j = 0; j < route.length; j++) {
+      if (i > 0 && j === 0) continue
+      allStations.push(route[j])
+    }
+
+    const destIndex = allStations.length - 1
+    destinationInfo.set(destIndex, {
+      number: i + 1,
+      stayLabel: data.d[i].st ?? null,
+    })
+  }
+
+  const nodes = getRouteWithLines(allStations)
+  const extendedNodes = nodes.map((node, index) => ({
+    ...node,
+    destinationNumber: destinationInfo.get(index)?.number ?? null,
+    stayLabel: destinationInfo.get(index)?.stayLabel ?? null,
+  }))
+
+  // 運賃計算
+  let totalFare = 0
+  let totalStations = 0
+  {
+    let from = data.s
+    for (const d of data.d) {
+      const route = findShortestRoute(from, d.n, data.t)
+      totalFare += calculateTripFare(route)
+      totalStations += Math.max(0, route.length - 1)
+      from = d.n
+    }
+  }
+
+  const passPrice = data.t ? COMMON_PASS_PRICE : METRO_PASS_PRICE
+  const savings = totalFare - passPrice
+  const passLabel = data.t ? 'メトロ・都営共通一日券' : 'メトロ24時間券'
+
+  // 逆順表示
+  const reversed = [...extendedNodes].reverse()
+  let routeHtml = '<div class="route-visual">'
+  for (let i = 0; i < reversed.length; i++) {
+    const node = reversed[i]
+    const isFirst = i === 0
+    const isLast = i === reversed.length - 1
+    const nextNode = i > 0 ? reversed[i - 1] : null
+    const lineColor = nextNode?.lineColor || node.lineColor || '#ddd'
+    const destinationLabel = getDestinationLabel(node.destinationNumber)
+    const transferLabel = node.isTransfer ? '<span class="route-badge route-badge-transfer">乗換</span>' : ''
+    const stayBadge = node.stayLabel != null ? `<span class="route-badge route-badge-stay">${node.stayLabel}</span>` : ''
+
+    routeHtml += `
+      <div class="route-node">
+        <div class="route-line-container">
+          ${!isFirst ? `<div class="route-line route-line-top" style="background-color: ${lineColor}"></div>` : ''}
+          <div class="route-circle" style="border-color: ${node.lineColor || '#999'}">
+            ${node.lineCode || ''}
+          </div>
+          ${!isLast ? `<div class="route-line route-line-bottom" style="background-color: ${node.lineColor || '#ddd'}"></div>` : ''}
+        </div>
+        <div class="route-info">
+          <span class="route-station">${node.station}</span>
+          ${destinationLabel}
+          ${stayBadge}
+          ${transferLabel}
+        </div>
+      </div>
+    `
+  }
+  routeHtml += '</div>'
+
+  let fareHtml = ''
+  if (data.d.length > 0) {
+    if (savings > 0) {
+      fareHtml = `
+        <div class="game-fare game-fare-profit">
+          <span class="fare-total">合計${totalStations}駅 / 運賃 ¥${totalFare}</span>
+          <span class="fare-pass">${passLabel} ¥${passPrice}</span>
+          <span class="fare-savings">¥${savings} お得!</span>
+        </div>
+      `
+    } else {
+      fareHtml = `
+        <div class="game-fare game-fare-loss">
+          <span class="fare-total">合計${totalStations}駅 / 運賃 ¥${totalFare}</span>
+          <span class="fare-pass">${passLabel} ¥${passPrice}</span>
+          <span class="fare-savings">あと ¥${-savings} で元が取れる</span>
+        </div>
+      `
+    }
+  }
+
+  return `
+    <div class="game-card">
+      <div class="game-header">
+        <div class="game-name">シェアされた記録</div>
+      </div>
+      ${fareHtml}
+      ${routeHtml}
+    </div>
+  `
+}
+
+function checkSharedUrl(): boolean {
+  const params = new URLSearchParams(location.search)
+  const shareParam = params.get('share')
+  if (!shareParam) return false
+
+  const data = decodeShareData(shareParam)
+  if (!data) return false
+
+  const container = document.getElementById('shared-section')!
+  container.innerHTML = renderSharedGame(data)
+  container.classList.remove('hidden')
+
+  return true
 }
 
 async function handleEditGameName(e: Event): Promise<void> {
@@ -869,6 +1062,9 @@ function initStayTimeSettings(): void {
 }
 
 async function init(): Promise<void> {
+  // シェアURLチェック
+  checkSharedUrl()
+
   // 都営トグル初期化
   const toeiToggle = document.getElementById('toei-toggle') as HTMLInputElement
   toeiToggle.checked = isToeiEnabled()
