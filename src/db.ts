@@ -14,6 +14,8 @@ export interface HistoryRecord {
   lineName: string
   lineCode: string
   route: string[] // 経路（駅名の配列）
+  stayMinutes?: number // 滞在時間（分）- 旧形式互換
+  stayDisplay?: string // 滞在時間の表示テキスト（例: "15分〜30分"）
 }
 
 const DB_NAME = 'RandomTokyoMetroDB'

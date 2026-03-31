@@ -11,10 +11,15 @@ import {
   HistoryRecord,
 } from './db'
 import { findShortestRoute, getRouteWithLines, RouteNode } from './route'
+import { encodeShareData, calculateTripFare } from './share-utils'
 import './style.css'
 
 const DEPARTURE_KEY = 'departureStation'
 const GAME_ID_KEY = 'currentGameId'
+const STAY_TIME_KEY = 'stayTimeConfig'
+
+const METRO_PASS_PRICE = 700
+const COMMON_PASS_PRICE = 1200
 
 function getDeparture(): string {
   return localStorage.getItem(DEPARTURE_KEY) || ''
@@ -61,6 +66,58 @@ function isToeiEnabled(): boolean {
 
 function setToeiEnabled(enabled: boolean): void {
   localStorage.setItem(TOEI_ENABLED_KEY, String(enabled))
+}
+
+interface StayTimeConfig {
+  min: number
+  max: number
+  interval: number
+}
+
+function getStayTimeConfig(): StayTimeConfig {
+  const data = localStorage.getItem(STAY_TIME_KEY)
+  if (data) {
+    try {
+      return JSON.parse(data) as StayTimeConfig
+    } catch { /* fall through */ }
+  }
+  return { min: 5, max: 60, interval: 5 }
+}
+
+function setStayTimeConfig(config: StayTimeConfig): void {
+  localStorage.setItem(STAY_TIME_KEY, JSON.stringify(config))
+}
+
+function getRandomStayDisplay(): string {
+  const config = getStayTimeConfig()
+  const steps: number[] = []
+  for (let v = config.min; v <= config.max; v += config.interval) {
+    steps.push(v)
+  }
+  if (steps.length === 0) steps.push(config.min)
+
+  // ランダムに2つの境界値を選んで範囲を作る
+  const idx1 = Math.floor(Math.random() * steps.length)
+  const idx2 = Math.floor(Math.random() * steps.length)
+  const lo = steps[Math.min(idx1, idx2)]
+  const hi = steps[Math.max(idx1, idx2)]
+
+  if (lo === hi) return `${lo}分`
+  if (lo === config.min) return `${hi}分以下`
+  if (hi === config.max) return `${lo}分以上`
+  return `${lo}分〜${hi}分`
+}
+
+function getPassPrice(): number {
+  return isToeiEnabled() ? COMMON_PASS_PRICE : METRO_PASS_PRICE
+}
+
+function calculateGameFare(history: HistoryRecord[]): number {
+  let total = 0
+  for (const record of history) {
+    total += calculateTripFare(record.route)
+  }
+  return total
 }
 
 function isGameActive(): boolean {
@@ -234,17 +291,23 @@ function renderRouteVisual(route: string[]): string {
   return html
 }
 
-function renderResult(station: Station, departure: string, route: string[]): void {
+function renderResult(station: Station, departure: string, route: string[], stayDisplay: string): void {
   const resultSection = document.getElementById('result-section')!
   const lineBadge = document.getElementById('line-badge')!
-  const stationName = document.getElementById('station-name')!
+  const stationNameEl = document.getElementById('station-name')!
+  const stayTimeEl = document.getElementById('stay-time')!
+  const tripFareEl = document.getElementById('trip-fare')!
   const transitLink = document.getElementById('transit-link') as HTMLAnchorElement
   const routeDisplay = document.getElementById('route-display')!
 
   lineBadge.textContent = `${station.lineCode} ${station.line}`
   lineBadge.style.backgroundColor = station.lineColor
-  stationName.textContent = station.name
+  stationNameEl.textContent = station.name
+  stayTimeEl.textContent = `滞在: ${stayDisplay}`
   transitLink.href = createTransitUrl(departure, station.name)
+
+  const tripFare = calculateTripFare(route)
+  tripFareEl.textContent = `運賃: ¥${tripFare}`
 
   if (route.length > 0) {
     routeDisplay.innerHTML = `
@@ -303,7 +366,10 @@ async function renderGames(): Promise<void> {
     })
   })
 
-  // 編集・削除のイベントリスナー
+  // シェア・編集・削除のイベントリスナー
+  document.querySelectorAll('.game-share').forEach((btn) => {
+    btn.addEventListener('click', handleShareGame)
+  })
   document.querySelectorAll('.game-name-edit').forEach((btn) => {
     btn.addEventListener('click', handleEditGameName)
   })
@@ -314,6 +380,7 @@ async function renderGames(): Promise<void> {
 
 interface ExtendedRouteNode extends RouteNode {
   destinationNumber: number | null  // null=通過駅、0=開始駅、1=1回目の目的地...
+  stayLabel: string | null
 }
 
 function buildFullRoute(game: GameRecord, history: HistoryRecord[]): ExtendedRouteNode[] {
@@ -324,36 +391,35 @@ function buildFullRoute(game: GameRecord, history: HistoryRecord[]): ExtendedRou
       lineName: null,
       lineColor: null,
       isTransfer: false,
-      destinationNumber: 0,  // 開始駅
+      destinationNumber: 0,
+      stayLabel: null,
     }]
   }
 
   // 全てのrouteを統合し、目的地のインデックスを追跡
   const allStations: string[] = []
-  // 目的地のインデックス（結合後の配列でのインデックス）→ 目的地番号
-  const destinationIndices = new Map<number, number>()
-  destinationIndices.set(0, 0)  // 開始駅はインデックス0
+  const destinationInfo = new Map<number, { number: number; stayLabel: string | null }>()
+  destinationInfo.set(0, { number: 0, stayLabel: null })
 
   for (let i = 0; i < history.length; i++) {
     const record = history[i]
 
     for (let j = 0; j < record.route.length; j++) {
-      // 最初のレコード以外は、最初の駅（前の到着駅）をスキップ
       if (i > 0 && j === 0) continue
       allStations.push(record.route[j])
     }
 
-    // このレコードの目的地は、現在のallStationsの最後のインデックス
     const destinationIndex = allStations.length - 1
-    destinationIndices.set(destinationIndex, i + 1)  // 1回目、2回目...
+    const stayLabel = record.stayDisplay ?? (record.stayMinutes != null ? `${record.stayMinutes}分` : null)
+    destinationInfo.set(destinationIndex, { number: i + 1, stayLabel })
   }
 
   const baseNodes = getRouteWithLines(allStations)
 
-  // インデックスベースで目的地番号を付与
   return baseNodes.map((node, index) => ({
     ...node,
-    destinationNumber: destinationIndices.get(index) ?? null,
+    destinationNumber: destinationInfo.get(index)?.number ?? null,
+    stayLabel: destinationInfo.get(index)?.stayLabel ?? null,
   }))
 }
 
@@ -384,6 +450,7 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
     const destinationLabel = getDestinationLabel(node.destinationNumber)
     const transferLabel = node.isTransfer ? '<span class="route-badge route-badge-transfer">乗換</span>' : ''
     const currentLabel = isFirst && node.destinationNumber !== null ? '<span class="route-badge route-badge-current">現在地</span>' : ''
+    const stayBadge = node.stayLabel != null ? `<span class="route-badge route-badge-stay">${node.stayLabel}</span>` : ''
 
     routeHtml += `
       <div class="route-node">
@@ -397,6 +464,7 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
         <div class="route-info">
           <span class="route-station">${node.station}</span>
           ${destinationLabel}
+          ${stayBadge}
           ${transferLabel}
           ${currentLabel}
         </div>
@@ -406,15 +474,45 @@ function renderGameCard(game: GameRecord, history: HistoryRecord[]): string {
 
   routeHtml += '</div>'
 
+  // 運賃計算
+  const totalFare = calculateGameFare(history)
+  const totalStations = history.reduce((sum, r) => sum + Math.max(0, r.route.length - 1), 0)
+  const passPrice = getPassPrice()
+  const savings = totalFare - passPrice
+  const passLabel = isToeiEnabled() ? 'メトロ・都営共通一日券' : 'メトロ24時間券'
+
+  let fareHtml = ''
+  if (history.length > 0) {
+    if (savings > 0) {
+      fareHtml = `
+        <div class="game-fare game-fare-profit">
+          <span class="fare-total">合計${totalStations}駅 / 運賃 ¥${totalFare}</span>
+          <span class="fare-pass">${passLabel} ¥${passPrice}</span>
+          <span class="fare-savings">¥${savings} お得!</span>
+        </div>
+      `
+    } else {
+      fareHtml = `
+        <div class="game-fare game-fare-loss">
+          <span class="fare-total">合計${totalStations}駅 / 運賃 ¥${totalFare}</span>
+          <span class="fare-pass">${passLabel} ¥${passPrice}</span>
+          <span class="fare-savings">あと ¥${-savings} で元が取れる</span>
+        </div>
+      `
+    }
+  }
+
   return `
     <div class="game-card" data-game-id="${game.id}">
       <div class="game-header">
         <div class="game-name" data-game-id="${game.id}">${escapeHtml(game.name)}</div>
         <div class="game-actions">
+          <button class="game-share" data-game-id="${game.id}" title="シェア">📤</button>
           <button class="game-name-edit" data-game-id="${game.id}" title="名前を変更">✏️</button>
           <button class="game-delete" data-game-id="${game.id}" title="削除">🗑️</button>
         </div>
       </div>
+      ${fareHtml}
       ${routeHtml}
     </div>
   `
@@ -450,6 +548,39 @@ async function handleDeleteGame(e: Event): Promise<void> {
   await renderGames()
 }
 
+async function handleShareGame(e: Event): Promise<void> {
+  const btn = e.currentTarget as HTMLButtonElement
+  const gameId = parseInt(btn.dataset.gameId!, 10)
+
+  const games = await getAllGames()
+  const game = games.find((g) => g.id === gameId)
+  if (!game) return
+
+  const history = await getHistoryByGame(gameId)
+
+  const data = {
+    s: game.startStation,
+    t: isToeiEnabled(),
+    d: history.map((r) => {
+      const entry: { n: string; st?: string } = { n: r.toStation }
+      if (r.stayDisplay) entry.st = r.stayDisplay
+      else if (r.stayMinutes != null) entry.st = `${r.stayMinutes}分`
+      return entry
+    }),
+  }
+
+  const encoded = encodeShareData(data)
+  const base = location.origin + location.pathname.replace(/\/$/, '')
+  const url = `${base}/share?${encoded}`
+
+  try {
+    await navigator.clipboard.writeText(url)
+    alert('シェア用URLをコピーしました')
+  } catch {
+    prompt('シェア用URL:', url)
+  }
+}
+
 async function handleRandomClick(): Promise<void> {
   let departure: string
   let gameId = getCurrentGameId()
@@ -478,7 +609,8 @@ async function handleRandomClick(): Promise<void> {
     alert('除外駅が多すぎて選べる駅がありません。除外設定を見直してください。')
     return
   }
-  const route = findShortestRoute(departure, station.name)
+  const route = findShortestRoute(departure, station.name, isToeiEnabled())
+  const stayDisplay = getRandomStayDisplay()
 
   await addHistory({
     gameId: gameId!,
@@ -488,9 +620,10 @@ async function handleRandomClick(): Promise<void> {
     lineName: station.line,
     lineCode: station.lineCode,
     route,
+    stayDisplay,
   })
 
-  renderResult(station, departure, route)
+  renderResult(station, departure, route, stayDisplay)
 
   // 次回の出発駅を今回選ばれた駅に更新
   setDeparture(station.name)
@@ -620,6 +753,32 @@ function renderExcludeSettings(): void {
   })
 }
 
+function initStayTimeSettings(): void {
+  const config = getStayTimeConfig()
+  const minInput = document.getElementById('stay-min') as HTMLInputElement
+  const maxInput = document.getElementById('stay-max') as HTMLInputElement
+  const intervalInput = document.getElementById('stay-interval') as HTMLInputElement
+
+  minInput.value = String(config.min)
+  maxInput.value = String(config.max)
+  intervalInput.value = String(config.interval)
+
+  function saveConfig() {
+    const min = parseInt(minInput.value, 10) || 5
+    const max = parseInt(maxInput.value, 10) || 60
+    const interval = parseInt(intervalInput.value, 10) || 5
+    setStayTimeConfig({
+      min: Math.max(1, min),
+      max: Math.max(min, max),
+      interval: Math.max(1, interval),
+    })
+  }
+
+  minInput.addEventListener('change', saveConfig)
+  maxInput.addEventListener('change', saveConfig)
+  intervalInput.addEventListener('change', saveConfig)
+}
+
 async function init(): Promise<void> {
   // 都営トグル初期化
   const toeiToggle = document.getElementById('toei-toggle') as HTMLInputElement
@@ -641,6 +800,15 @@ async function init(): Promise<void> {
 
   const clearAllButton = document.getElementById('clear-all-button')!
   clearAllButton.addEventListener('click', handleClearAll)
+
+  // 滞在時間設定
+  const stayToggle = document.getElementById('stay-toggle')!
+  const stayContent = document.getElementById('stay-content')!
+  stayToggle.addEventListener('click', () => {
+    stayContent.classList.toggle('hidden')
+    stayToggle.classList.toggle('open')
+  })
+  initStayTimeSettings()
 
   // 除外駅設定
   const excludeToggle = document.getElementById('exclude-toggle')!

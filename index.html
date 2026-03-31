@@ -37,10 +37,35 @@
       <div id="result-section" class="result-section">
         <div id="line-badge" class="line-badge"></div>
         <div id="station-name" class="station-name"></div>
+        <div id="stay-time" class="stay-time"></div>
+        <div id="trip-fare" class="trip-fare"></div>
         <div id="route-display" class="route-display"></div>
         <a id="transit-link" class="transit-link" target="_blank" rel="noopener">
           Yahoo!乗換案内で検索
         </a>
+      </div>
+
+      <div class="stay-section">
+        <button id="stay-toggle" class="stay-toggle">
+          <span>滞在時間設定</span>
+          <span class="stay-arrow">▶</span>
+        </button>
+        <div id="stay-content" class="stay-content hidden">
+          <div class="stay-fields">
+            <label class="stay-field">
+              <span class="stay-field-label">最小（分）</span>
+              <input type="number" id="stay-min" class="stay-input" min="1" />
+            </label>
+            <label class="stay-field">
+              <span class="stay-field-label">最大（分）</span>
+              <input type="number" id="stay-max" class="stay-input" min="1" />
+            </label>
+            <label class="stay-field">
+              <span class="stay-field-label">間隔（分）</span>
+              <input type="number" id="stay-interval" class="stay-input" min="1" />
+            </label>
+          </div>
+        </div>
       </div>
 
       <div class="exclude-section">

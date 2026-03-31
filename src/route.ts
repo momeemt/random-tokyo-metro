@@ -147,7 +147,9 @@ const allStations = getAllStations()
 
 // ダイクストラ法で乗り換えペナルティを考慮した最短経路を探索
 // 状態: (駅名, 現在の路線) のペア
-export function findShortestRoute(from: string, to: string): string[] {
+const TOEI_LINE_CODES = new Set(['A', 'I', 'S', 'E_radial', 'E_loop'])
+
+export function findShortestRoute(from: string, to: string, includeToei: boolean = true): string[] {
   if (from === to) return [from]
 
   if (!allStations.has(from) || !allStations.has(to)) {
@@ -188,6 +190,7 @@ export function findShortestRoute(from: string, to: string): string[] {
 
     // 現在の駅で利用可能な路線
     const availableLines = getLinesForStation(current.station)
+      .filter(code => includeToei || !TOEI_LINE_CODES.has(code))
 
     // 各路線について、隣接駅への移動を検討
     for (const lineCode of availableLines) {
@@ -337,7 +340,7 @@ export function getRouteWithLines(route: string[]): RouteNode[] {
 
     result.push({
       station,
-      lineCode,
+      lineCode: toDisplayCode(lineCode),
       lineName,
       lineColor,
       isTransfer,
@@ -347,4 +350,9 @@ export function getRouteWithLines(route: string[]): RouteNode[] {
   }
 
   return result
+}
+
+function toDisplayCode(code: string | null): string | null {
+  if (code === 'E_radial' || code === 'E_loop') return 'E'
+  return code
 }
